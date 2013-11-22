@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+# opendiff wrapper -- a quick fix for opendiff
+
+APP_NAME='FileMerge'
+APP_ID='com.apple.FileMerge'
+CMD='/usr/bin/opendiff'
+
+cmd() {
+	# sed gets rid of the '2013-11-22 02:54:44.734 opendiff[90964:1007]'-like garbage
+	"$CMD" $@ 2>&1 | sed -E 's/^[0-9:. -]+ opendiff\[[0-9]+:[0-9]+\] ?//g' 1>&2
+	if [[ $? -eq 0 && $nowait ]]; then
+		sleep 0.5
+	fi
+}
+openapp() {
+	# IDs are better identifiers then app names, since it's not wrong for a third party to make a FileMerge
+	# app but it is nonstandard for their app ID to begin with 'com.apple'.
+	# There's no simple non-AppleScript way to find out whether an app with a certain ID is running.
+	# (AppleScript takes too long to run, so only using that to launch the app, which takes time anyway.)
+	killall -s "$APP_ID" &> /dev/null
+	if [ $? -ne 0 ]; then
+		osascript -e 'run app id "'"$APP_ID"'"'
+		sleep 0.1
+	fi
+	# If you always have a different FileMerge app and you want to make sure you target 'com.apple.FileMerge',
+	# use this instead. The overhead is about a half a second of delay.
+	# osascript -e 'if not running of app id "'"$APP_ID"'"
+	# 	run app id "'"$APP_ID"'"
+	# 	delay 0.1
+	# end if'
+}
+
+if [ "$1" == '--nowait' ]; then
+	nowait=true
+	shift
+else
+	nowait=false
+fi
+
+openapp
+
+if [ $nowait ]; then
+	# without the sleep afterwards, 'instant' output might come after the next command prompt
+	cmd $@ & sleep 0.05
+else
+	cmd
+fi
